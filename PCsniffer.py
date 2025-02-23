@@ -1,5 +1,4 @@
 This is the raw coding behind my PC checker, with a list of everything it does, you may review the code to ensure safety and more, also if you have any suggestions to add, please message @suprsor on discord to contact me. 
-
 import os
 import sys
 import subprocess
@@ -12,23 +11,28 @@ import webbrowser
 import threading
 import tkinter as tk
 from tkinter import messagebox
-import shutil
-from datetime import datetime
+
+# Initialize the Discord client
+intents = discord.Intents.default()
+intents.message_content = True  # Enable the message content intent if needed
+
+# Initialize the Discord client with intents
+client = commands.Bot(command_prefix='!', intents=intents)
 
 # Secure Configuration (Replace these values)
-DISCORD_TOKEN = '  # Replace with your bot token
-CHANNEL_ID =   # Replace with your channel ID
-AUTHORIZED_KEY = ''  # Replace with your secret key
+DISCORD_TOKEN = 'My Discord Bot Token'  # Replace with your bot token
+CHANNEL_ID = My Channel ID  # Replace with your channel ID
+AUTHORIZED_KEY = 'Example'  # Replace with your secret key
 
 # Log file setup
-LOG_FILE_PATH_EXE = 'pc_checker_log_exe.txt'
-LOG_FILE_PATH_ZIP = 'pc_checker_log_zip.txt'
-LOG_FILE_PATH_RAR = 'pc_checker_log_rar.txt'
-LOG_FILE_PATH_TLSCAN = 'pc_checker_log_tlscan.txt'
-LOG_FILE_PATH_SYSINFO = 'pc_checker_log_sysinfo.txt'
-LOG_FILE_PATH_SUSFILES = 'pc_checker_log_susfiles.txt'
-LOG_FILE_PATH_CFG = 'pc_checker_log_pf.txt'
-LOG_FILE_PATH_PF = 'pc_checker_log_pf.txt'
+LOG_FILE_PATH_EXE = 'PcSnifferLog_exe.txt'
+LOG_FILE_PATH_ZIP = 'PcSnifferLog_zip.txt'
+LOG_FILE_PATH_RAR = 'PcSnifferLog_rar.txt'
+LOG_FILE_PATH_TLSCAN = 'PcSnifferLog_tlscan.txt'
+LOG_FILE_PATH_SYSINFO = 'PcSnifferLog_sysinfo.txt'
+LOG_FILE_PATH_SUSFILES = 'PcSnifferLog_susfiles.txt'
+LOG_FILE_PATH_CFG = 'PcSnifferLog_cfg.txt'
+LOG_FILE_PATH_PF = 'PcSnifferLog_pf.txt'
 MAX_LOG_SIZE = 8 * 1024 * 1024  # 8MB max per file
 
 # Delete previous log files if they exist and recreate them empty
@@ -43,6 +47,7 @@ for log_file in [LOG_FILE_PATH_EXE, LOG_FILE_PATH_ZIP, LOG_FILE_PATH_RAR, LOG_FI
     if not os.path.exists(log_file):
         with open(log_file, 'w') as f:
             pass
+
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -178,19 +183,19 @@ def get_windows_settings():
 
 def log_last_install_date():
     try:
-        result = subprocess.run(['powershell', '-Command', "(Get-CimInstance Win32_OperatingSystem).InstallDate"], capture_output=True, text=True)
+        result = subprocess.run(['powershell', '-WindowStyle', 'Hidden', '-Command', "(Get-CimInstance Win32_OperatingSystem).InstallDate"], capture_output=True, text=True)
         install_date = result.stdout.strip()
         log_message(f"Windows Installation Date: {install_date}", LOG_FILE_PATH_SYSINFO)
     except Exception as e:
         log_message(f"Error fetching Windows Installation Date: {e}", LOG_FILE_PATH_SYSINFO)
-
 def check_secure_boot():
     try:
-        result = subprocess.run(['powershell', '-Command', "Confirm-SecureBootUEFI"], capture_output=True, text=True)
+        result = subprocess.run(['powershell', '-WindowStyle', 'Hidden', '-Command', "Confirm-SecureBootUEFI"], capture_output=True, text=True)
         status = result.stdout.strip()
         log_message(f"Secure Boot Status: {status}", LOG_FILE_PATH_SYSINFO)
     except Exception as e:
         log_message(f"Error fetching Secure Boot status: {e}", LOG_FILE_PATH_SYSINFO)
+
 
 def get_antivirus_settings():
     log_message("Fetching Antivirus Settings...", LOG_FILE_PATH_SYSINFO)
@@ -200,14 +205,16 @@ def get_antivirus_settings():
     check_memory_integrity_status()
     check_vulnerable_driver_blocklist()
     check_dma_kernel_protection()
+    log_protection_history()
 
 def check_antivirus_status():
     try:
-        result = subprocess.run(['powershell', '-Command', "Get-MpComputerStatus | Select-Object AMRunningMode"], capture_output=True, text=True)
+        result = subprocess.run(['powershell', '-WindowStyle', 'Hidden', '-Command', "Get-MpComputerStatus | Select-Object AMRunningMode"], capture_output=True, text=True)
         status = result.stdout.strip()
         log_message(f"Antivirus Status: {status}", LOG_FILE_PATH_SYSINFO)
     except Exception as e:
         log_message(f"Error fetching Antivirus status: {e}", LOG_FILE_PATH_SYSINFO)
+
 
 def get_pc_information():
     log_message("Fetching PC Information...", LOG_FILE_PATH_SYSINFO)
@@ -217,11 +224,12 @@ def get_pc_information():
 
 def list_connected_devices():
     try:
-        result = subprocess.run(['powershell', '-Command', "Get-PnpDevice | Where-Object { $_.Present -eq $true } | Select-Object Name, Manufacturer"], capture_output=True, text=True)
+        result = subprocess.run(['powershell', '-WindowStyle', 'Hidden', '-Command', "Get-PnpDevice | Where-Object { $_.Present -eq $true } | Select-Object Name, Manufacturer"], capture_output=True, text=True)
         devices = result.stdout.strip()
         log_message(f"Connected Devices:\n{devices}", LOG_FILE_PATH_SYSINFO)
     except Exception as e:
         log_message(f"Error fetching connected devices: {e}", LOG_FILE_PATH_SYSINFO)
+
 
 def get_system_info():
     log_message("Starting system information collection...", LOG_FILE_PATH_SYSINFO)
@@ -231,6 +239,7 @@ def get_system_info():
     find_suspicious_files()
     find_archive_files()
     log_message("System information collection complete.", LOG_FILE_PATH_SYSINFO)
+
 
 def check_real_time_protection():
     try:
@@ -278,7 +287,7 @@ def check_dma_kernel_protection():
 
 def log_protection_history():
     try:
-        result = subprocess.run(['powershell', '-Command', 'Get-MpThreatDetection | Select-Object DetectionType, ThreatName, TimeDetected'], capture_output=True, text=True)
+        result = subprocess.run(['powershell', '-WindowStyle', 'Hidden', '-Command', 'Get-MpThreatDetection | Select-Object DetectionType, ThreatName, TimeDetected'], capture_output=True, text=True)
         log_message("Protection History:", LOG_FILE_PATH_SYSINFO)
         log_message(result.stdout, LOG_FILE_PATH_SYSINFO)
     except Exception as e:
@@ -286,7 +295,7 @@ def log_protection_history():
 
 def log_computer_specifications():
     try:
-        result = subprocess.run(['powershell', '-Command', 'Get-ComputerInfo'], capture_output=True, text=True)
+        result = subprocess.run(['powershell', '-WindowStyle', 'Hidden', '-Command', 'Get-ComputerInfo'], capture_output=True, text=True)
         log_message("Computer Specifications:", LOG_FILE_PATH_SYSINFO)
         log_message(result.stdout, LOG_FILE_PATH_SYSINFO)
     except Exception as e:
@@ -299,9 +308,10 @@ def list_dma_devices():
     except Exception as e:
         log_message(f"Error listing DMA devices: {e}", LOG_FILE_PATH_SYSINFO)
 
-def send_logs_to_channel(channel, client):
+
+def send_logs_to_channel(channel):
     logging.debug("Sending logs to channel...")
-    for file_path in [LOG_FILE_PATH_EXE, LOG_FILE_PATH_ZIP, LOG_FILE_PATH_RAR, LOG_FILE_PATH_TLSCAN, LOG_FILE_PATH_SYSINFO, LOG_FILE_PATH_SUSFILES, LOG_FILE_PATH_CFG, LOG_FILE_PATH_PF]:
+    for file_path in [LOG_FILE_PATH_EXE, LOG_FILE_PATH_ZIP, LOG_FILE_PATH_RAR, LOG_FILE_PATH_TLSCAN, LOG_FILE_PATH_SYSINFO, LOG_FILE_PATH_SUSFILES, LOG_FILE_PATH_CFG,LOG_FILE_PATH_PF ]:
         if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
             file_size = os.path.getsize(file_path)
             if file_size <= MAX_LOG_SIZE:
@@ -332,47 +342,39 @@ def send_logs_to_channel(channel, client):
                 client.loop
             )
 
-    # Create a folder and move all .txt files into it
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    folder_name = f"{timestamp}PC-Check"
-    os.makedirs(folder_name, exist_ok=True)
-
-    for file_path in [LOG_FILE_PATH_EXE, LOG_FILE_PATH_ZIP, LOG_FILE_PATH_RAR, LOG_FILE_PATH_TLSCAN, LOG_FILE_PATH_SYSINFO, LOG_FILE_PATH_SUSFILES, LOG_FILE_PATH_CFG, LOG_FILE_PATH_PF]:
-        if os.path.exists(file_path):
-            shutil.move(file_path, os.path.join(folder_name, os.path.basename(file_path)))
-
-def get_r6_usernames():
-    logging.debug("Getting R6 usernames...")
+def get_r6_usernames_and_open_profiles():
+    logging.debug("Getting R6 usernames and opening profiles...")
     r6_folder = os.path.join(os.path.expanduser('~'), 'OneDrive', 'Documents', 'My Games', 'Rainbow Six - Siege')
     log_message(f"Checking path: {r6_folder}", LOG_FILE_PATH_EXE)
-
+    
     if os.path.exists(r6_folder):
         log_message(f"R6 folder exists: {os.path.isdir(r6_folder)}", LOG_FILE_PATH_EXE)
         usernames = [f for f in os.listdir(r6_folder) if os.path.isdir(os.path.join(r6_folder, f)) and len(f) == 36 and '-' in f]
         log_message(f"Found R6 usernames: {usernames}", LOG_FILE_PATH_EXE)
+        
+        def open_profile(username):
+            profile_url = f'https://stats.cc/siege/{username}'
+            webbrowser.open(profile_url)
+            log_message(f"Opened profile for {username}", LOG_FILE_PATH_EXE)
+
+        for username in usernames:
+            threading.Thread(target=open_profile, args=(username,)).start()
+            
         return usernames
     else:
         log_message("R6 folder not found.", LOG_FILE_PATH_EXE)
         return []
 
-def open_stats():
-    usernames = get_r6_usernames()
-    for username in usernames:
-        profile_url = f'https://stats.cc/siege/{username}'
-        webbrowser.open(profile_url)
-
 # Define the is_running variable globally
 is_running = False
 
-client = commands.Bot(command_prefix='!', intents=discord.Intents.default())
-
-async def start_full_process():
+async def start_full_process(update_status):
     logging.debug("Starting full process...")
     global is_running
     if is_running:
         log_message("Process is already running.", LOG_FILE_PATH_SYSINFO)
         return
-
+    
     is_running = True
     try:
         await client.wait_until_ready()
@@ -380,36 +382,65 @@ async def start_full_process():
         if not channel:
             print(f"Channel with ID {CHANNEL_ID} not found")
             return
-
-        get_system_info()
-        check_secure_boot()
-        check_antivirus_status()
-        list_connected_devices()
-        log_last_install_date()
-        # open_stats()  # Comment out or remove this line if you don't want to open stats
-        find_archive_files()
-
-        send_logs_to_channel(channel, client)
+        
+        steps = [
+            ("Fetching Windows Settings...", get_windows_settings),
+            ("Fetching Antivirus Settings...", get_antivirus_settings),
+            ("Fetching PC Information...", get_pc_information),
+            ("Finding suspicious files...", find_suspicious_files),
+            ("Finding archive files...", find_archive_files),
+            ("Sending logs to channel...", lambda: send_logs_to_channel(channel))
+        ]
+        
+        total_steps = len(steps)
+        
+        for i, (message, step) in enumerate(steps):
+            update_status(message, int((i / total_steps) * 100))
+            step()
+        
+        update_status("Process complete.", 100)
     finally:
         is_running = False
+
+import threading
 
 def display_prompt():
     logging.debug("Displaying prompt...")
 
     entry = None  # Define entry variable
 
+    def update_status(message, progress):
+        if message == "Process complete.":
+            message += " You may now exit the program."
+        status_label.config(text=f"{message} ({progress}%)")
+        root.update_idletasks()
+
     def on_continue():
-        entered_key = entry.get()
-        if entered_key == AUTHORIZED_KEY:
-            root.destroy()
-            threading.Thread(target=asyncio.run, args=(start_full_process(),)).start()
-        else:
-            error_label.config(text="You have entered an incorrect key.")
-            entry.delete(0, 'end')
+        if messagebox.askyesno("Confirmation", "Are you sure you want to continue?"):
+            entered_key = entry.get()
+            if entered_key == AUTHORIZED_KEY:
+                update_status("Starting the process...", 0)
+                continue_button.pack_forget()  # Hide the Continue button
+                threading.Thread(target=asyncio.run, args=(start_full_process(update_status),)).start()
+            else:
+                error_label.config(text="You have entered an incorrect key.")
+                entry.delete(0, 'end')
 
     def on_cancel():
-        root.destroy()
-        os._exit(1)
+        if messagebox.askyesno("Confirmation", "Are you sure you want to cancel?"):
+            root.destroy()
+            os._exit(1)
+
+    def open_stats():
+        if messagebox.askyesno("Confirmation", "Are you sure you want to show stats?"):
+            logging.debug("Opening stats...")
+            usernames = get_r6_usernames_and_open_profiles()
+            if usernames:
+                for username in usernames:
+                    profile_url = f'https://stats.cc/siege/{username}'
+                    webbrowser.open(profile_url)
+            else:
+                messagebox.showinfo("Stats", "No R6 usernames found.")
 
     def open_link(event):
         webbrowser.open_new(r"https://github.com/suprsor/PcCheckerInfo/edit/main/README.md")
@@ -419,6 +450,9 @@ def display_prompt():
     root.title("PC Checker")
     root.configure(bg="black")  # Set the background color
     root.geometry("500x500")  # Set the window size to 800x600
+
+    # Set the taskbar icon
+    root.iconbitmap('c:/Users/motor/Downloads/Code Testing/favicon.ico')  # Replace with the path to your .ico file
 
     # Create and place the labels and entry widgets
     text_widget = tk.Text(root, wrap="word", bg="black", fg="dark gray", insertbackground="red", relief="flat", height=20, width=60)
@@ -432,54 +466,56 @@ def display_prompt():
         "- Windows installation date\n"
         "- and more.\n\n"
         "This software requires a key to run in order to prevent abuse of software.\n\n"
-        "If you would like to review the code you may visit "
+        "If you would like to review the code you may visit here: "
     ))
-    text_widget.insert("end", "this site", ("link",))
-    text_widget.insert("end", "\n\nIf you have any questions please contact ")
-    text_widget.insert("end", "Socials, and Contact me.", ("link",))
+    text_widget.insert("end", " My Github Guide For More Info. ", ("link",))
+    text_widget.insert("end", "\n\nIf you have any questions please press the following link. ")
+    text_widget.insert("end", "Contacts and more.", ("link",))
     text_widget.tag_configure("link", foreground="blue", underline=True)
     text_widget.tag_bind("link", "<Button-1>", lambda e: webbrowser.open_new("https://guns.lol/suprsor"))
     text_widget.config(state="disabled")
-    text_widget.grid(row=0, column=0, padx=10, pady=10)
+    text_widget.grid(row=0, column=0, padx=10, pady=8)
 
     entry_label = tk.Label(root, text="Enter your key:", bg="black", fg="dark gray")
-    entry_label.grid(row=1, column=0, padx=10, pady=5)
+    entry_label.grid(row=1, column=0, padx=10, pady=2)
 
     entry = tk.Entry(root, width=50, bg="dark gray", fg="red", insertbackground="red")
     entry.insert(0, "Please enter your key here.")
     entry.bind("<FocusIn>", lambda args: entry.delete('0', 'end') if entry.get() == "Please enter your key here." else None)
-    entry.grid(row=2, column=0, padx=10, pady=5)
+    entry.grid(row=2, column=0, padx=10, pady=2)
 
     error_label = tk.Label(root, text="", bg="black", fg="red")
-    error_label.grid(row=3, column=0, padx=10, pady=5)
+    error_label.grid(row=3, column=0, padx=10, pady=2)
+
+    # Create and place the status label
+    status_label = tk.Label(root, text="", bg="black", fg="yellow")
+    status_label.grid(row=4, column=0, padx=10, pady=2)
 
     # Create and place the buttons
     button_frame = tk.Frame(root, bg="black")
-    button_frame.grid(row=4, column=0, padx=10, pady=10, sticky="ew")
+    button_frame.grid(row=5, column=0, padx=10, pady=18, sticky="ew")
 
     cancel_button = tk.Button(button_frame, text="Cancel", command=on_cancel, bg="gray", fg="red")
-    cancel_button.pack(side="left", padx=5, pady=5)
+    cancel_button.pack(side="left", padx=5, pady=2)
 
     continue_button = tk.Button(button_frame, text="Continue", command=on_continue, bg="gray", fg="red")
-    continue_button.pack(side="left", padx=5, pady=5, expand=True)
+    continue_button.pack(side="left", padx=5, pady=2, expand=True)
 
     open_stats_button = tk.Button(button_frame, text="Open Stats", command=open_stats, bg="gray", fg="red")
-    open_stats_button.pack(side="right", padx=5, pady=5)
+    open_stats_button.pack(side="right", padx=5, pady=2)
 
     # Run the main loop
     root.mainloop()
 
-intents = discord.Intents.default()
-intents.message_content = True
-client = commands.Bot(command_prefix='!', intents=intents)
+def run_display_prompt():
+    threading.Thread(target=display_prompt).start()
 
 @client.event
 async def on_ready():
     logging.debug("Bot is ready.")
     print(f'Logged in as {client.user}')
-    display_prompt()
+    run_display_prompt()
 
 if __name__ == "__main__":
     logging.debug("Starting the script...")
-    
     client.run(DISCORD_TOKEN)
