@@ -356,76 +356,6 @@ def send_logs_to_channel(channel):
                 client.loop
             )
 
-def admin_logs_to_channel(channel, log_files):
-    """
-    Sends specific log files to the Discord channel.
-    :param channel: The Discord channel object.
-    :param log_files: A list of log file paths to send.
-    """
-    logging.debug("Sending admin-requested logs to channel...")
-    if not isinstance(channel, discord.TextChannel):
-        logging.error("Invalid channel object. Ensure the CHANNEL_ID is correct and the bot has access to the channel.")
-        return
-
-    for file_path in log_files:
-        if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
-            file_size = os.path.getsize(file_path)
-            if file_size <= MAX_LOG_SIZE:
-                with open(file_path, 'rb') as log_file:
-                    asyncio.run_coroutine_threadsafe(
-                        channel.send(file=discord.File(log_file, filename=os.path.basename(file_path))),
-                        client.loop
-                    )
-            else:
-                part_number = 1
-                with open(file_path, 'rb') as log_file:
-                    while chunk := log_file.read(MAX_LOG_SIZE):
-                        part_filename = f'{file_path}_part{part_number}.txt'
-                        with open(part_filename, 'wb') as part_file:
-                            part_file.write(chunk)
-
-                        with open(part_filename, 'rb') as part_file:
-                            asyncio.run_coroutine_threadsafe(
-                                channel.send(file=discord.File(part_file, filename=os.path.basename(part_filename))),
-                                client.loop
-                            )
-
-                        os.remove(part_filename)  # Cleanup after sending
-                        part_number += 1
-        else:
-            asyncio.run_coroutine_threadsafe(
-                channel.send(f"{file_path} is empty or missing."),
-                client.loop
-            )
-
-def admin_send_log_to_channel(log_file_path, process_name):
-    """
-    Sends a specific log file to the Discord channel.
-    :param log_file_path: The path to the log file to send.
-    :param process_name: The name of the process for logging purposes.
-    """
-    try:
-        channel = client.get_channel(CHANNEL_ID)
-        if not channel:
-            logging.error(f"Channel with ID {CHANNEL_ID} not found.")
-            return
-
-        if os.path.exists(log_file_path) and os.path.getsize(log_file_path) > 0:
-            with open(log_file_path, 'rb') as log_file:
-                asyncio.run_coroutine_threadsafe(
-                    channel.send(file=discord.File(log_file, filename=os.path.basename(log_file_path))),
-                    client.loop
-                )
-            logging.info(f"{process_name} log file {log_file_path} sent to the channel.")
-        else:
-            asyncio.run_coroutine_threadsafe(
-                channel.send(f"{log_file_path} is empty or missing."),
-                client.loop
-            )
-            logging.warning(f"{process_name} log file {log_file_path} is empty or missing.")
-    except Exception as e:
-        logging.error(f"Error sending {process_name} log file: {e}")
-
 def get_r6_usernames_and_open_profiles():
     logging.debug("Getting R6 usernames and opening profiles...")
     r6_folder = os.path.join(os.path.expanduser('~'), 'OneDrive', 'Documents', 'My Games', 'Rainbow Six - Siege')
@@ -488,12 +418,13 @@ async def start_full_process(update_status):
 
 import threading
 
-def display_admin_prompt():
+def display_admin_prompt(root):
     logging.debug("Displaying admin prompt...")
 
     def on_admin_authenticate():
         entered_key = admin_entry.get()
-        if entered_key == os.getenv('ADMIN_KEY', 'Suprsor137$!!$'):
+        admin_key = os.getenv('ADMIN_KEY')  # Fetch the admin key from the .env file
+        if entered_key == admin_key:
             admin_prompt.destroy()
             display_admin_panel()
         else:
@@ -502,11 +433,19 @@ def display_admin_prompt():
 
     def on_admin_cancel():
         admin_prompt.destroy()
+        root.deiconify()  # Re-enable the primary prompt when admin prompt is closed
 
-    admin_prompt = tk.Toplevel()
+    # Hide the primary prompt while the admin prompt is open
+    root.withdraw()
+
+    admin_prompt = tk.Toplevel(root)
     admin_prompt.title("Admin Authentication")
     admin_prompt.configure(bg="black")
     admin_prompt.geometry("400x200")
+
+    # Force the admin prompt to stay on top and focused
+    admin_prompt.attributes('-topmost', True)
+    admin_prompt.focus_force()
 
     admin_label = tk.Label(admin_prompt, text="Enter Admin Key:", bg="black", fg="dark gray")
     admin_label.pack(pady=10)
@@ -526,6 +465,37 @@ def display_admin_prompt():
     admin_continue_button = tk.Button(admin_button_frame, text="Authenticate", command=on_admin_authenticate, bg="gray", fg="red")
     admin_continue_button.pack(side="right", padx=5)
 
+    # Ensure the admin prompt is modal (blocks interaction with other windows)
+    admin_prompt.transient(root)
+    admin_prompt.grab_set()
+    admin_prompt.wait_window()
+
+def find_sysinfo():
+    """Function to fetch system information."""
+    log_message("Fetching system information...", LOG_FILE_PATH_SYSINFO)
+    get_windows_settings()
+    get_antivirus_settings()
+    get_pc_information()
+
+def find_cfg():
+    """Function to find .cfg files."""
+    log_message("Finding .cfg files...", LOG_FILE_PATH_CFG)
+    find_archive_files()
+
+def find_pf():
+    """Function to find .pf files."""
+    log_message("Finding .pf files...", LOG_FILE_PATH_PF)
+    find_archive_files()
+
+def find_tlscan():
+    """Function to find .tlscan files."""
+    log_message("Finding .tlscan files...", LOG_FILE_PATH_TLSCAN)
+    find_archive_files()
+
+def find_exe():
+    """Function to find .exe files."""
+    log_message("Finding .exe files...", LOG_FILE_PATH_EXE)
+    find_archive_files()
 
 def display_admin_panel():
     logging.debug("Displaying admin panel...")
@@ -565,73 +535,34 @@ def display_admin_panel():
         threading.Thread(target=asyncio.run, args=(start_full_process(lambda msg, prog: None),)).start()
         admin_panel.destroy()
 
-def start_specific_process(process_function, process_name, log_file_path):
-        def run_process():
-            try:
-                # Run the specified process
-                process_function()
-                
-                # Send the corresponding log file to the channel
-                admin_send_log_to_channel(log_file_path, process_name)
-                
-                messagebox.showinfo("Process Complete", f"{process_name} has completed, and the log file has been sent.")
-            except Exception as e:
-                logging.error(f"Error in {process_name}: {e}")
-                messagebox.showerror("Error", f"An error occurred while running {process_name}.")
-        
-        # Run the process in a separate thread
-        threading.Thread(target=run_process).start()
-
-def start_specific_process(process_function, process_name, log_file_path):
-        def run_process():
-            try:
-                # Run the specified process
-                process_function()
-                
-                # Send the corresponding log file to the channel
-                admin_send_log_to_channel(log_file_path, process_name)
-                
-                messagebox.showinfo("Process Complete", f"{process_name} has completed, and the log file has been sent.")
-            except Exception as e:
-                logging.error(f"Error in {process_name}: {e}")
-                messagebox.showerror("Error", f"An error occurred while running {process_name}.")
-        
-        # Run the process in a separate thread
-        threading.Thread(target=run_process).start()
-
-def start_specific_process(process_function, process_name, log_file_path):
-        def run_process():
-            try:
-                # Run the specified process
-                process_function()
-                
-                # Send the corresponding log file to the channel
-                admin_send_log_to_channel(log_file_path, process_name)
-                
-                messagebox.showinfo("Process Complete", f"{process_name} has completed, and the log file has been sent.")
-            except Exception as e:
-                logging.error(f"Error in {process_name}: {e}")
-                messagebox.showerror("Error", f"An error occurred while running {process_name}.")
-        
-        # Run the process in a separate thread
-        threading.Thread(target=run_process).start()
-
     def start_specific_process(process_function, process_name, log_file_path):
-        def run_process():
+        def process_and_send_logs():
+            process_function()  # Run the specific process
             try:
-                # Run the specified process
-                process_function()
-                
-                # Send the corresponding log file to the channel
-                admin_send_log_to_channel(log_file_path, process_name)
-                
-                messagebox.showinfo("Process Complete", f"{process_name} has completed, and the log file has been sent.")
+                # Send the log file to the Discord channel
+                channel = client.get_channel(CHANNEL_ID)
+                if not channel:
+                    logging.error(f"Channel with ID {CHANNEL_ID} not found.")
+                    return
+
+                if os.path.exists(log_file_path) and os.path.getsize(log_file_path) > 0:
+                    with open(log_file_path, 'rb') as log_file:
+                        asyncio.run_coroutine_threadsafe(
+                            channel.send(file=discord.File(log_file, filename=os.path.basename(log_file_path))),
+                            client.loop
+                        )
+                    logging.info(f"Sent {log_file_path} to the Discord channel.")
+                else:
+                    asyncio.run_coroutine_threadsafe(
+                        channel.send(f"{log_file_path} is empty or missing."),
+                        client.loop
+                    )
+                    logging.warning(f"{log_file_path} is empty or missing.")
             except Exception as e:
-                logging.error(f"Error in {process_name}: {e}")
-                messagebox.showerror("Error", f"An error occurred while running {process_name}.")
-        
-        # Run the process in a separate thread
-        threading.Thread(target=run_process).start()
+                logging.error(f"Error sending logs: {e}")
+
+        threading.Thread(target=process_and_send_logs).start()
+        messagebox.showinfo("Process Started", f"{process_name} process started.")
 
     admin_panel = tk.Toplevel()
     admin_panel.title("Admin Panel")
@@ -647,20 +578,18 @@ def start_specific_process(process_function, process_name, log_file_path):
     tk.Label(admin_panel, text="Start Specific Processes:", bg="black", fg="yellow").pack(pady=10)
 
     buttons = [
-        ("Find SYSINFO", get_pc_information, LOG_FILE_PATH_SYSINFO),
-        ("Find CFG", lambda: find_archive_files(), LOG_FILE_PATH_CFG),
-        ("Find PF", lambda: find_archive_files(), LOG_FILE_PATH_PF),
-        ("Find TLscan", lambda: find_archive_files(), LOG_FILE_PATH_TLSCAN),
-        ("Find EXE", lambda: find_archive_files(), LOG_FILE_PATH_EXE),
+        ("Find SYSINFO", find_sysinfo, LOG_FILE_PATH_SYSINFO),
+        ("Find CFG", find_cfg, LOG_FILE_PATH_CFG),
+        ("Find PF", find_pf, LOG_FILE_PATH_PF),
+        ("Find TLscan", find_tlscan, LOG_FILE_PATH_TLSCAN),
+        ("Find EXE", find_exe, LOG_FILE_PATH_EXE),
     ]
 
-    for name, func, log_path in buttons:
-        tk.Button(admin_panel, text=name, command=lambda f=func, n=name, lp=log_path: start_specific_process(f, n, lp), bg="gray", fg="red").pack(pady=5)
+    for name, func, log_file in buttons:
+        tk.Button(admin_panel, text=name, command=lambda f=func, n=name, l=log_file: start_specific_process(f, n, l), bg="gray", fg="red").pack(pady=5)
 
 def display_prompt():
     logging.debug("Displaying prompt...")
-
-    entry = None  # Define entry variable
 
     def update_status(message, progress):
         if message == "Process complete.":
@@ -696,7 +625,7 @@ def display_prompt():
                 messagebox.showinfo("Stats", "No R6 usernames found.")
 
     def open_admin():
-        display_admin_prompt()
+        display_admin_prompt(root)
 
     # Create the main window
     root = tk.Tk()
@@ -704,10 +633,14 @@ def display_prompt():
     root.configure(bg="black")
     root.geometry("500x500")
 
+    # Force the window to stay focused
+    root.attributes('-topmost', True)  # Make the window always on top
+    root.focus_force()  # Force focus on the window
+
     # Set the taskbar icon
     root.iconbitmap('c:/Users/motor/Downloads/pc check/favicon.ico')  # Replace with the path to your .ico file
 
-    # Create and place the labels and entry widgets
+    # Create and place the text widget
     text_widget = tk.Text(root, wrap="word", bg="black", fg="dark gray", insertbackground="red", relief="flat", height=20, width=60)
     text_widget.insert("1.0", (
         "Welcome to Suprsor's PC checker\n\n"
@@ -724,27 +657,27 @@ def display_prompt():
     text_widget.insert("end", " My Github Guide For More Info. ", ("link",))
     text_widget.insert("end", "\n\nIf you have any questions please press the following link. ")
     text_widget.insert("end", "Contacts and more.", ("link",))
+    text_widget.insert("end", "\n\nEnter your key below:\n")  # Add the "Enter your key:" text inside the text box
     text_widget.tag_configure("link", foreground="blue", underline=True)
     text_widget.tag_bind("link", "<Button-1>", lambda e: webbrowser.open_new("https://guns.lol/suprsor"))
     text_widget.config(state="disabled")
-    text_widget.grid(row=0, column=0, padx=10, pady=8)
+    text_widget.grid(row=0, column=0, padx=10, pady=8, columnspan=2)
 
-    entry_label = tk.Label(root, text="Enter your key:", bg="black", fg="dark gray")
-    entry_label.grid(row=1, column=0, padx=10, pady=2)
-
+    # Create and place the entry widget
     entry = tk.Entry(root, width=50, bg="dark gray", fg="red", insertbackground="red")
-    entry.grid(row=2, column=0, padx=10, pady=2)
+    entry.grid(row=1, column=0, padx=10, pady=2, columnspan=2)
 
+    # Create and place the error label
     error_label = tk.Label(root, text="", bg="black", fg="red")
-    error_label.grid(row=3, column=0, padx=10, pady=2)
+    error_label.grid(row=2, column=0, padx=10, pady=2, columnspan=2)
 
     # Create and place the status label
     status_label = tk.Label(root, text="", bg="black", fg="yellow")
-    status_label.grid(row=4, column=0, padx=10, pady=2)
+    status_label.grid(row=3, column=0, padx=10, pady=2, columnspan=2)
 
     # Create and place the buttons
     button_frame = tk.Frame(root, bg="black")
-    button_frame.grid(row=5, column=0, padx=10, pady=18, sticky="ew")
+    button_frame.grid(row=4, column=0, padx=10, pady=18, sticky="ew", columnspan=2)
 
     cancel_button = tk.Button(button_frame, text="Cancel", command=on_cancel, bg="gray", fg="red")
     cancel_button.pack(side="left", padx=5, pady=2)
@@ -755,8 +688,9 @@ def display_prompt():
     open_stats_button = tk.Button(button_frame, text="Open Stats", command=open_stats, bg="gray", fg="red")
     open_stats_button.pack(side="right", padx=5, pady=2)
 
-    admin_button = tk.Button(button_frame, text="Admin", command=open_admin, bg="gray", fg="red")
-    admin_button.pack(side="right", padx=5, pady=2)
+    # Place the Admin button at the top-right corner
+    admin_button = tk.Button(root, text="Admin", command=open_admin, bg="gray", fg="red")
+    admin_button.grid(row=0, column=1, padx=10, pady=8, sticky="ne")
 
     # Run the main loop
     root.mainloop()
