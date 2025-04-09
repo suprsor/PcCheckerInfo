@@ -1,0 +1,1245 @@
+import os
+import sys
+import subprocess
+import datetime 
+import logging
+import asyncio
+import discord 
+from discord.ext import commands 
+import webbrowser
+import threading
+import tkinter as tk
+from tkinter import messagebox
+from dotenv import load_dotenv
+import random
+import string
+from discord import app_commands
+from datetime import datetime, timedelta
+import json
+import aiofiles
+import winreg
+import ctypes
+import ctypes.wintypes
+import win32gui
+import win32con
+
+def hide_terminal():
+    """Hide or minimize the terminal window."""
+    try:
+       
+        hwnd = win32gui.GetForegroundWindow()
+        
+        win32gui.ShowWindow(hwnd, win32con.SW_MINIMIZE)
+    except Exception as e:
+        logging.error(f"Failed to hide terminal: {e}")
+
+
+def is_admin():
+    """Check if the script is running with administrator privileges."""
+    try:
+        return ctypes.windll.shell32.IsUserAnAdmin()
+    except:
+        return False
+
+if not is_admin():
+    ctypes.windll.shell32.ShellExecuteW(
+        None, "runas", sys.executable, " ".join(sys.argv), None, 1
+    )
+    sys.exit()
+
+
+hide_terminal()
+
+
+load_dotenv()
+
+
+intents = discord.Intents.default()
+intents.message_content = True  
+
+
+client = commands.Bot(command_prefix='!', intents=intents)
+
+
+DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')  
+AUTHORIZED_KEY = os.getenv('AUTHORIZED_KEY', 'Example') 
+
+
+channel_id_env = os.getenv('CHANNEL_ID')
+if not channel_id_env or not channel_id_env.isdigit():
+    raise ValueError("Invalid or missing CHANNEL_ID in the .env file. Please provide a valid channel ID.")
+
+CHANNEL_ID = int(channel_id_env)  
+print(f"Loaded CHANNEL_ID: {CHANNEL_ID}")
+
+@client.command(name='setlogchannels')
+async def set_log_channels(ctx, channel_id: int):
+    await ctx.send("The log channel is static and cannot be changed.")
+
+
+LOG_FILE_PATH_EXE = 'c:/Users/motor/Downloads/Testing/PcCheckTest_exe.txt'
+LOG_FILE_PATH_ZIP = 'c:/Users/motor/Downloads/Testing/PcCheckTest_zip.txt'
+LOG_FILE_PATH_RAR = 'c:/Users/motor/Downloads/Testing/PcCheckTest_rar.txt'
+LOG_FILE_PATH_TLSCAN = 'c:/Users/motor/Downloads/Testing/PcCheckTest_tlscan.txt'
+LOG_FILE_PATH_SYSINFO = 'c:/Users/motor/Downloads/Testing/PcCheckTest_sysinfo.txt'
+LOG_FILE_PATH_SUSFILES = 'c:/Users/motor/Downloads/Testing/PcCheckTest_susfiles.txt'
+LOG_FILE_PATH_CFG = 'c:/Users/motor/Downloads/Testing/PcCheckTest_cfg.txt'
+LOG_FILE_PATH_PF = 'c:/Users/motor/Downloads/Testing/PcCheckTest_pf.txt'
+LOG_FILE_PATH_REGEDIT = 'c:/Users/motor/Downloads/Testing/PcCheckTest_regedit.txt'
+MAX_LOG_SIZE = 8 * 1024 * 1024  
+
+
+for log_file in [LOG_FILE_PATH_EXE, LOG_FILE_PATH_ZIP, LOG_FILE_PATH_RAR, LOG_FILE_PATH_TLSCAN, LOG_FILE_PATH_SYSINFO, LOG_FILE_PATH_SUSFILES, LOG_FILE_PATH_CFG, LOG_FILE_PATH_PF, LOG_FILE_PATH_REGEDIT]:
+    if os.path.exists(log_file):
+        os.remove(log_file)
+    with open(log_file, 'w') as f:
+        pass
+
+
+for log_file in [LOG_FILE_PATH_EXE, LOG_FILE_PATH_ZIP, LOG_FILE_PATH_RAR, LOG_FILE_PATH_TLSCAN, LOG_FILE_PATH_SYSINFO, LOG_FILE_PATH_SUSFILES, LOG_FILE_PATH_CFG, LOG_FILE_PATH_PF, LOG_FILE_PATH_REGEDIT]:
+    if not os.path.exists(log_file):
+        with open(log_file, 'w') as f:
+            pass
+
+
+
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+
+def log_message(message, file_path):
+    logging.debug(f"Logging message: {message}")
+    print(message)
+   
+    with open(file_path, 'a', encoding='utf-8') as log_file:
+        log_file.write(message + '\n')
+    logging.info(message)
+
+def get_windows_settings():
+    log_message("Fetching Windows Settings...", LOG_FILE_PATH_SYSINFO)
+    log_last_install_date()
+    check_secure_boot()
+
+def get_antivirus_settings():
+    log_message("Fetching Antivirus Settings...", LOG_FILE_PATH_SYSINFO)
+    check_antivirus_status()
+    try:
+        result = subprocess.run(['powershell', '-Command', 'Get-MpComputerStatus | Select-Object -Property RealTimeProtectionEnabled,FirewallEnabled'], capture_output=True, text=True)
+        log_message("Antivirus Settings:", LOG_FILE_PATH_SYSINFO)
+        log_message(result.stdout, LOG_FILE_PATH_SYSINFO)
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+
+def get_pc_information():
+    log_message("Fetching PC Information...", LOG_FILE_PATH_SYSINFO)
+    try:
+        result = subprocess.run(['powershell', '-Command', 'Get-ComputerInfo'], capture_output=True, text=True)
+        log_message("PC Information:", LOG_FILE_PATH_SYSINFO)
+        log_message(result.stdout, LOG_FILE_PATH_SYSINFO)
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+    
+    list_connected_devices()
+
+def find_suspicious_files():
+    log_message("Finding suspicious files...", LOG_FILE_PATH_SUSFILES)
+    keywords = ["cheat", "hack", "bypass", "crack", "spoof", "exploit", "script", "loader", "silent", "unlocker",
+                "norecoil", "ESP", "wallhack", "rage", "trigger", "nospread", "spoofer", "macro", "AIO"]
+
+    suspicious_files = []
+    drives = [f"{d}:\\" for d in "ABCDEFGHIJKLMNOPQRSTUVWXYZ" if os.path.exists(f"{d}:\\")]
+
+    for drive in drives:
+        for root, _, files in os.walk(drive, topdown=True):
+            for file in files:
+                if any(keyword in file.lower() for keyword in keywords):
+                    suspicious_files.append(os.path.join(root, file))
+
+    if suspicious_files:
+        log_message("Found suspicious files:", LOG_FILE_PATH_SUSFILES)
+        for file in suspicious_files:
+            log_message(file, LOG_FILE_PATH_SUSFILES)
+    else:
+        log_message("No suspicious files found.", LOG_FILE_PATH_SUSFILES)
+
+def find_archive_files():
+    logging.debug("Finding archive files...")
+    archive_files_exe = []
+    archive_files_zip = []
+    archive_files_rar = []
+    archive_files_tlscan = []
+    archive_files_pf = []
+    archive_files_cfg = []
+    drives = [f"{d}:\\" for d in "ABCDEFGHIJKLMNOPQRSTUVWXYZ" if os.path.exists(f"{d}:\\")]
+
+    for drive in drives:
+        for root, _, files in os.walk(drive, topdown=True):
+            for file in files:
+                if file.lower().endswith('.exe'):
+                    archive_files_exe.append(os.path.join(root, file))
+                elif file.lower().endswith('.zip'):
+                    archive_files_zip.append(os.path.join(root, file))
+                elif file.lower().endswith('.rar'):
+                    archive_files_rar.append(os.path.join(root, file))
+                elif file.lower().endswith('.tlscan'):
+                    archive_files_tlscan.append(os.path.join(root, file))
+                elif file.lower().endswith('.pf'):
+                    archive_files_pf.append(os.path.join(root, file))
+                elif file.lower().endswith('.cfg'):
+                    archive_files_cfg.append(os.path.join(root, file))
+
+    if archive_files_exe:
+        log_message("Found .exe files:", LOG_FILE_PATH_EXE)
+        for file in archive_files_exe:
+            log_message(file, LOG_FILE_PATH_EXE)
+    else:
+        log_message("No suspicious .exe files found.", LOG_FILE_PATH_EXE)
+
+    if archive_files_zip:
+        log_message("Found .zip files:", LOG_FILE_PATH_ZIP)
+        for file in archive_files_zip:
+            log_message(file, LOG_FILE_PATH_ZIP)
+    else:
+        log_message("No suspicious .zip files found.", LOG_FILE_PATH_ZIP)
+
+    if archive_files_rar:
+        log_message("Found .rar files:", LOG_FILE_PATH_RAR)
+        for file in archive_files_rar:
+            log_message(file, LOG_FILE_PATH_RAR)
+    else:
+        log_message("No suspicious .rar files found.", LOG_FILE_PATH_RAR)
+
+    if archive_files_tlscan:
+        log_message("Found .tlscan files:", LOG_FILE_PATH_TLSCAN)
+        for file in archive_files_tlscan:
+            log_message(file, LOG_FILE_PATH_TLSCAN)
+    else:
+        log_message("No suspicious .tlscan files found.", LOG_FILE_PATH_TLSCAN)
+    
+    if archive_files_pf:
+        log_message("Found .pf files:", LOG_FILE_PATH_PF)
+        for file in archive_files_pf:
+            log_message(file, LOG_FILE_PATH_PF)
+    else:
+        log_message("No .pf files found.", LOG_FILE_PATH_PF)
+    
+    if archive_files_cfg:
+        log_message("Found .cfg files:", LOG_FILE_PATH_CFG)
+        for file in archive_files_cfg:
+            log_message(file, LOG_FILE_PATH_CFG)
+    else:
+        log_message("No .cfg files found.", LOG_FILE_PATH_CFG)
+
+def get_windows_settings():
+    log_message("Fetching Windows Settings...", LOG_FILE_PATH_SYSINFO)
+    log_last_install_date()
+    check_secure_boot()
+
+def log_last_install_date():
+    try:
+        result = subprocess.run(['powershell', '-WindowStyle', 'Hidden', '-Command', "(Get-CimInstance Win32_OperatingSystem).InstallDate"], capture_output=True, text=True)
+        install_date = result.stdout.strip()
+        log_message(f"Windows Installation Date: {install_date}", LOG_FILE_PATH_SYSINFO)
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+def check_secure_boot():
+    try:
+        result = subprocess.run(['powershell', '-WindowStyle', 'Hidden', '-Command', "Confirm-SecureBootUEFI"], capture_output=True, text=True)
+        status = result.stdout.strip()
+        log_message(f"Secure Boot Status: {status}", LOG_FILE_PATH_SYSINFO)
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+
+
+def get_antivirus_settings():
+    log_message("Fetching Antivirus Settings...", LOG_FILE_PATH_SYSINFO)
+    check_real_time_protection()
+    check_firewall_status()
+    check_cfg_status()
+    check_memory_integrity_status()
+    check_vulnerable_driver_blocklist()
+    check_dma_kernel_protection()
+    log_protection_history()
+
+def check_antivirus_status():
+    try:
+        result = subprocess.run(['powershell', '-WindowStyle', 'Hidden', '-Command', "Get-MpComputerStatus | Select-Object AMRunningMode"], capture_output=True, text=True)
+        status = result.stdout.strip()
+        log_message(f"Antivirus Status: {status}", LOG_FILE_PATH_SYSINFO)
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+
+
+def get_pc_information():
+    log_message("Fetching PC Information...", LOG_FILE_PATH_SYSINFO)
+    log_computer_specifications()
+    list_connected_devices()
+    list_dma_devices()
+
+def list_connected_devices():
+    try:
+        result = subprocess.run(['powershell', '-WindowStyle', 'Hidden', '-Command', "Get-PnpDevice | Where-Object { $_.Present -eq $true } | Select-Object Name, Manufacturer"], capture_output=True, text=True)
+        devices = result.stdout.strip()
+        log_message(f"Connected Devices:\n{devices}", LOG_FILE_PATH_SYSINFO)
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+
+
+def get_registry_values(registry_path):
+    """Fetch the Name and Data sections from the specified registry path."""
+    log_message(f"Attempting to access registry path: {registry_path}", LOG_FILE_PATH_SYSINFO)
+    try:
+       
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, registry_path, 0, winreg.KEY_READ) as key:
+            index = 0
+            while True:
+                try:
+                   
+                    name, data, _ = winreg.EnumValue(key, index)
+                    log_message(f"Registry Value - Name: {name}, Data: {data}", LOG_FILE_PATH_SYSINFO)
+                    index += 1
+                except OSError:
+                   
+                    log_message("No more registry values found.", LOG_FILE_PATH_SYSINFO)
+                    break
+    except FileNotFoundError:
+        log_message(f"Registry path not found: {registry_path}", LOG_FILE_PATH_SYSINFO)
+    except PermissionError:
+        log_message(f"Permission denied: Unable to access registry path: {registry_path}", LOG_FILE_PATH_SYSINFO)
+    except Exception as e:
+        logging.error(f"An error occurred while accessing the registry: {e}")
+        log_message(f"Failed to fetch registry values from: {registry_path}", LOG_FILE_PATH_SYSINFO)
+
+def get_registry_values_to_file(registry_path):
+    """Fetch the Name and Data sections from the specified registry path and log them in a clean format."""
+    log_message(f"Attempting to access registry path: {registry_path}", LOG_FILE_PATH_REGEDIT)
+    try:
+      
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, registry_path, 0, winreg.KEY_READ) as key:
+            index = 0
+            found_values = False
+            log_message("Name | Data", LOG_FILE_PATH_REGEDIT) 
+            log_message("-" * 50, LOG_FILE_PATH_REGEDIT) 
+            while True:
+                try:
+                   
+                    name, data, _ = winreg.EnumValue(key, index)
+                    log_message(f"{name} | {data}", LOG_FILE_PATH_REGEDIT)
+                    index += 1
+                    found_values = True
+                except OSError:
+                  
+                    break
+            if not found_values:
+                log_message("No registry values found.", LOG_FILE_PATH_REGEDIT)
+    except FileNotFoundError:
+        log_message(f"Registry path not found: {registry_path}", LOG_FILE_PATH_REGEDIT)
+    except PermissionError:
+        log_message(f"Permission denied: Unable to access registry path: {registry_path}", LOG_FILE_PATH_REGEDIT)
+    except Exception as e:
+        logging.error(f"An error occurred while accessing the registry: {e}")
+        log_message(f"Failed to fetch registry values from: {registry_path}", LOG_FILE_PATH_REGEDIT)
+
+def find_registry_values():
+    """Function to fetch registry values from the specified path."""
+    log_message("Fetching registry values...", LOG_FILE_PATH_REGEDIT)
+    
+   
+    registry_path = r"Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\MuiCache"
+    log_message(f"Fetching registry values from: {registry_path}", LOG_FILE_PATH_REGEDIT)
+    
+    try:
+        
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, registry_path, 0, winreg.KEY_READ) as key:
+            index = 0
+            found_values = False
+            while True:
+                try:
+                   
+                    log_message(f"Registry Value - Name: {name}, Data: {data}", LOG_FILE_PATH_REGEDIT)
+                    index += 1
+                    found_values = True
+                except OSError:
+                  
+                    break
+            if not found_values:
+                log_message("No registry values found.", LOG_FILE_PATH_REGEDIT)
+    except FileNotFoundError:
+        log_message(f"Registry path not found: {registry_path}", LOG_FILE_PATH_REGEDIT)
+    except PermissionError:
+        log_message(f"Permission denied: Unable to access registry path: {registry_path}", LOG_FILE_PATH_REGEDIT)
+    except Exception as e:
+        logging.error(f"An error occurred while accessing the registry: {e}")
+        log_message(f"Failed to fetch registry values from: {registry_path}", LOG_FILE_PATH_REGEDIT)
+
+def get_system_info():
+    log_message("Starting system information collection...", LOG_FILE_PATH_SYSINFO)
+    get_windows_settings()
+    get_antivirus_settings()
+    get_pc_information()
+    find_suspicious_files()
+    find_archive_files()
+
+    
+    registry_path = r"Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\MuiCache"
+    log_message(f"Fetching registry values from: {registry_path}", LOG_FILE_PATH_SYSINFO)
+    log_message("Calling get_registry_values_to_file...", LOG_FILE_PATH_SYSINFO)
+    get_registry_values_to_file(registry_path)
+
+    log_message("System information collection complete.", LOG_FILE_PATH_SYSINFO)
+
+
+def check_real_time_protection():
+    try:
+        result = subprocess.run(['powershell', '-Command', 'Get-MpComputerStatus | Select-Object RealTimeProtectionEnabled'], capture_output=True, text=True)
+        log_message("Real Time Protection Status:", LOG_FILE_PATH_SYSINFO)
+        log_message(result.stdout, LOG_FILE_PATH_SYSINFO)
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+
+def check_firewall_status():
+    try:
+        result = subprocess.run(['powershell', '-Command', 'Get-NetFirewallProfile | Select-Object Name, Enabled'], capture_output=True, text=True)
+        log_message("Firewall Status:", LOG_FILE_PATH_SYSINFO)
+        log_message(result.stdout, LOG_FILE_PATH_SYSINFO)
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+
+def check_cfg_status():
+    try:
+      
+        log_message("CFG Status: Not Implemented", LOG_FILE_PATH_SYSINFO)
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+
+def check_memory_integrity_status():
+    try:
+        
+        log_message("Memory Integrity Status: Not Implemented", LOG_FILE_PATH_SYSINFO)
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+
+def check_vulnerable_driver_blocklist():
+    try:
+       
+        log_message("Microsoft Vulnerable Driver Blocklist: Not Implemented", LOG_FILE_PATH_SYSINFO)
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+
+def check_dma_kernel_protection():
+    try:
+      
+        log_message("DMA Kernel Protection: Not Implemented", LOG_FILE_PATH_SYSINFO)
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+
+def log_protection_history():
+    try:
+        result = subprocess.run(['powershell', '-WindowStyle', 'Hidden', '-Command', 'Get-MpThreatDetection | Select-Object DetectionType, ThreatName, TimeDetected'], capture_output=True, text=True)
+        log_message("Protection History:", LOG_FILE_PATH_SYSINFO)
+        log_message(result.stdout, LOG_FILE_PATH_SYSINFO)
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+
+def log_computer_specifications():
+    try:
+        result = subprocess.run(['powershell', '-WindowStyle', 'Hidden', '-Command', 'Get-ComputerInfo'], capture_output=True, text=True)
+        log_message("Computer Specifications:", LOG_FILE_PATH_SYSINFO)
+        log_message(result.stdout, LOG_FILE_PATH_SYSINFO)
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+
+def list_dma_devices():
+    try:
+       
+        log_message("DMA Devices: Not Implemented", LOG_FILE_PATH_SYSINFO)
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+
+
+async def send_logs_to_channel(server_id):
+    """Send logs to a dynamically detected channel based on the server ID, or fallback to the admin channel."""
+    logging.debug(f"Attempting to send logs for server_id: {server_id}")
+
+    
+    if server_id in log_channels:
+        channel_id = log_channels[server_id]['channel_id']
+        channel = client.get_channel(channel_id)
+        if not channel:
+            logging.error(f"Channel with ID {channel_id} not found. Falling back to admin channel.")
+            channel = client.get_channel(CHANNEL_ID)
+    else:
+        logging.warning(f"No log channel set for Server ID {server_id}. Falling back to admin channel.")
+        channel = client.get_channel(CHANNEL_ID)
+
+    if not channel:
+        logging.error(f"Admin channel with ID {CHANNEL_ID} not found. Cannot send logs.")
+        return
+
+    logging.debug(f"Found channel: {channel.name} (ID: {channel.id}) for server ID: {server_id}")
+
+    log_files = [
+        LOG_FILE_PATH_EXE, LOG_FILE_PATH_ZIP, LOG_FILE_PATH_RAR,
+        LOG_FILE_PATH_TLSCAN, LOG_FILE_PATH_SYSINFO, LOG_FILE_PATH_SUSFILES,
+        LOG_FILE_PATH_CFG, LOG_FILE_PATH_PF, LOG_FILE_PATH_REGEDIT
+    ]
+
+    for log_file in log_files:
+        if os.path.exists(log_file) and os.path.getsize(log_file) > 0:
+            try:
+                with open(log_file, 'rb') as file:
+                    await channel.send(file=discord.File(file, filename=os.path.basename(log_file)))
+                    logging.info(f"Sent {log_file} to channel {channel.name} in guild {channel.guild.name}.")
+            except Exception as e:
+                logging.error(f"An error occurred while sending {log_file}: {e}")
+        else:
+            try:
+                await channel.send(f"{log_file} is empty or missing.")
+                logging.warning(f"{log_file} is empty or missing.")
+            except Exception as e:
+                logging.error(f"An error occurred while notifying about {log_file}: {e}")
+
+def schedule_send_logs(server_id):
+    """Schedule the send_logs_to_channel function on the asyncio event loop."""
+    if client.loop.is_running():
+    
+        asyncio.run_coroutine_threadsafe(send_logs_to_channel(server_id), client.loop)
+    else:
+        logging.error("Event loop is not running. Cannot schedule send_logs_to_channel.")
+
+def get_r6_usernames_and_open_profiles():
+    logging.debug("Getting R6 usernames and opening profiles...")
+    r6_folder = os.path.join(os.path.expanduser('~'), 'OneDrive', 'Documents', 'My Games', 'Rainbow Six - Siege')
+    log_message(f"Checking path: {r6_folder}", LOG_FILE_PATH_EXE)
+    
+    if os.path.exists(r6_folder):
+        log_message(f"R6 folder exists: {os.path.isdir(r6_folder)}", LOG_FILE_PATH_EXE)
+        usernames = [f for f in os.listdir(r6_folder) if os.path.isdir(os.path.join(r6_folder, f)) and len(f) == 36 and '-' in f]
+        log_message(f"Found R6 usernames: {usernames}", LOG_FILE_PATH_EXE)
+        
+        def open_profile(username):
+            profile_url = f'https://stats.cc/siege/{username}'
+            webbrowser.open(profile_url)
+            log_message(f"Opened profile for {username}", LOG_FILE_PATH_EXE)
+
+        for username in usernames:
+            threading.Thread(target=open_profile, args=(username,)).start()
+            
+        return usernames
+    else:
+        log_message("R6 folder not found.", LOG_FILE_PATH_EXE)
+        return []
+
+
+is_running = False
+
+async def start_full_process(update_status, server_id):
+    logging.debug("Starting full process...")
+    global is_running
+    if is_running:
+        log_message("Process is already running.", LOG_FILE_PATH_SYSINFO)
+        return
+    
+    is_running = True
+    try:
+        await client.wait_until_ready()
+
+     
+        if server_id not in log_channels:
+            logging.error(f"No log channel set for Server ID {server_id}.")
+            return
+
+        steps = [
+            ("Fetching Windows Settings...", get_windows_settings),
+            ("Fetching Antivirus Settings...", get_antivirus_settings),
+            ("Fetching PC Information...", get_pc_information),
+            ("Finding suspicious files...", find_suspicious_files),
+            ("Finding archive files...", find_archive_files),
+            ("Fetching registry values...", find_registry_values),  
+        ]
+        
+        total_steps = len(steps)
+        
+        for i, (message, step) in enumerate(steps):
+            update_status(message, int((i / total_steps) * 100))
+            step()
+
+       
+        await send_logs_to_channel(server_id)
+
+        update_status("Process complete.", 100)
+    finally:
+        is_running = False
+
+import threading
+
+def display_admin_prompt():
+    logging.debug("Displaying admin prompt...")
+
+    def on_admin_authenticate():
+        entered_key = admin_entry.get()
+        if entered_key == os.getenv('ADMIN_KEY', 'Suprsor137$!!$'):
+            admin_prompt.destroy()
+            display_admin_panel()
+        else:
+            admin_error_label.config(text="Incorrect admin key.")
+            admin_entry.delete(0, 'end')
+
+    def on_admin_cancel():
+        admin_prompt.destroy()
+
+    admin_prompt = tk.Toplevel()
+    admin_prompt.title("Admin Authentication")
+    admin_prompt.configure(bg="gray")
+    admin_prompt.geometry("400x200")
+
+    admin_label = tk.Label(admin_prompt, text="Enter Admin Key:", bg="black", fg="dark gray")
+    admin_label.pack(pady=10)
+
+    admin_entry = tk.Entry(admin_prompt, width=30, bg="dark gray", fg="red", insertbackground="red")
+    admin_entry.pack(pady=5)
+
+    admin_error_label = tk.Label(admin_prompt, text="", bg="black", fg="red")
+    admin_error_label.pack(pady=5)
+
+    admin_button_frame = tk.Frame(admin_prompt, bg="black")
+    admin_button_frame.pack(pady=10)
+
+    admin_cancel_button = tk.Button(admin_button_frame, text="Cancel", command=on_admin_cancel, bg="gray", fg="red")
+    admin_cancel_button.pack(side="left", padx=5)
+
+    admin_continue_button = tk.Button(admin_button_frame, text="Authenticate", command=on_admin_authenticate, bg="gray", fg="red")
+    admin_continue_button.pack(side="right", padx=5)
+
+def find_sysinfo():
+    """Function to fetch system information."""
+    log_message("Fetching system information...", LOG_FILE_PATH_SYSINFO)
+    
+   
+    get_windows_settings()
+    get_antivirus_settings()
+    get_pc_information()
+
+def find_registry_values():
+    """Function to fetch registry values."""
+    log_message("Fetching registry values...", LOG_FILE_PATH_REGEDIT)
+    
+   
+    registry_path = r"Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\MuiCache"
+    log_message(f"Fetching registry values from: {registry_path}", LOG_FILE_PATH_REGEDIT)
+    get_registry_values_to_file(registry_path)
+
+def find_cfg():
+    """Function to find .cfg files."""
+    log_message("Finding .cfg files...", LOG_FILE_PATH_CFG)
+    find_archive_files()
+
+def find_pf():
+    """Function to find .pf files."""
+    log_message("Finding .pf files...", LOG_FILE_PATH_PF)
+
+   
+    prefetch_dir = r"C:\Windows\Prefetch"
+    pf_files = []
+
+    try:
+       
+        enable_backup_privilege()
+
+        if os.path.exists(prefetch_dir):
+            for root, _, files in os.walk(prefetch_dir):
+                for file in files:
+                    if file.lower().endswith('.pf'):
+                        pf_files.append(os.path.join(root, file))
+
+            if pf_files:
+                log_message("Found .pf files:", LOG_FILE_PATH_PF)
+                for file in pf_files:
+                    log_message(file, LOG_FILE_PATH_PF)
+            else:
+                log_message("No .pf files found in the Prefetch directory.", LOG_FILE_PATH_PF)
+        else:
+            log_message("Prefetch directory does not exist.", LOG_FILE_PATH_PF)
+    except PermissionError:
+        log_message("Permission denied: Unable to access the Prefetch directory. Try running as administrator.", LOG_FILE_PATH_PF)
+    except Exception as e:
+        logging.error(f"An error occurred while searching for .pf files: {e}")
+        log_message(f"An error occurred: {e}", LOG_FILE_PATH_PF)
+
+def find_tlscan():
+    """Function to find .tlscan files."""
+    log_message("Finding .tlscan files...", LOG_FILE_PATH_TLSCAN)
+    find_archive_files()
+
+def find_exe():
+    """Function to find .exe files."""
+    log_message("Finding .exe files...", LOG_FILE_PATH_EXE)
+    find_archive_files()
+
+def display_admin_panel():
+    logging.debug("Displaying admin panel...")
+
+    def change_auth_key():
+        try:
+            def on_change_key():
+                new_key = key_entry.get()
+                if new_key:
+                    with open('.env', 'r') as file:
+                        lines = file.readlines()
+                    with open('.env', 'w') as file:
+                        for line in lines:
+                            if line.startswith("AUTHORIZED_KEY="):
+                                file.write(f"AUTHORIZED_KEY={new_key}\n")
+                            else:
+                                file.write(line)
+                    key_prompt.destroy()
+                    messagebox.showinfo("Success", "AUTHORIZED_KEY updated successfully.")
+                else:
+                    messagebox.showerror("Error", "Key cannot be empty.")
+
+            key_prompt = tk.Toplevel()
+            key_prompt.title("Change Auth Key")
+            key_prompt.configure(bg="gray")
+            key_prompt.geometry("400x200")
+
+            key_label = tk.Label(key_prompt, text="Enter new AUTHORIZED_KEY:", bg="gray", fg="dark gray")
+            key_label.pack(pady=10)
+
+            key_entry = tk.Entry(key_prompt, width=30, bg="dark gray", fg="red", insertbackground="red")
+            key_entry.pack(pady=5)
+
+            key_button = tk.Button(key_prompt, text="Change Key", command=on_change_key, bg="gray", fg="red")
+            key_button.pack(pady=10)
+        except Exception as e:
+            logging.error(f"An error occurred: {e}")
+
+    def admin_bypass():
+        """Admin bypass function using static CHANNEL_ID."""
+        try:
+            threading.Thread(target=asyncio.run, args=(start_full_process(lambda msg, prog: None, CHANNEL_ID),)).start()
+            admin_panel.destroy()
+        except Exception as e:
+            logging.error(f"An error occurred: {e}")
+
+    def start_specific_process(process_function, process_name, log_file_path):
+        """Start specific processes and send logs to the static CHANNEL_ID."""
+        try:
+            async def process_and_send_logs():
+                process_function()  
+                try:
+                    channel = client.get_channel(CHANNEL_ID)  
+                    if not channel:
+                        logging.error(f"Channel with ID {CHANNEL_ID} not found.")
+                        return
+
+                    if os.path.exists(log_file_path) and os.path.getsize(log_file_path) > 0:
+                        with open(log_file_path, 'rb') as log_file:
+                            await channel.send(file=discord.File(log_file, filename=os.path.basename(log_file_path)))
+                        logging.info(f"Sent {log_file_path} to the Discord channel.")
+                    else:
+                        await channel.send(f"{log_file_path} is empty or missing.")
+                        logging.warning(f"{log_file_path} is empty or missing.")
+                except Exception as e:
+                    logging.error(f"An error occurred: {e}")
+
+            asyncio.run_coroutine_threadsafe(process_and_send_logs(), client.loop)
+            messagebox.showinfo("Process Started", f"{process_name} process started.")
+        except Exception as e:
+            logging.error(f"An error occurred: {e}")
+
+    admin_panel = tk.Toplevel()
+    admin_panel.title("Admin Panel")
+    admin_panel.configure(bg="gray")
+    admin_panel.geometry("400x600")  
+
+    change_key_button = tk.Button(admin_panel, text="Change Auth Key", command=change_auth_key, bg="gray", fg="red")
+    change_key_button.pack(pady=10)
+
+    bypass_button = tk.Button(admin_panel, text="Admin Bypass", command=admin_bypass, bg="gray", fg="red")
+    bypass_button.pack(pady=10)
+
+    tk.Label(admin_panel, text="Start Specific Processes:", bg="gray", fg="yellow").pack(pady=10)
+
+   
+    buttons = [
+        ("Find SYSINFO", find_sysinfo, LOG_FILE_PATH_SYSINFO),
+        ("Find CFG", find_cfg, LOG_FILE_PATH_CFG),
+        ("Find PF", find_pf, LOG_FILE_PATH_PF),
+        ("Find TLscan", find_tlscan, LOG_FILE_PATH_TLSCAN),
+        ("Find EXE", find_exe, LOG_FILE_PATH_EXE),
+        ("Find ZIP", lambda: find_archive_files(), LOG_FILE_PATH_ZIP),
+        ("Find RAR", lambda: find_archive_files(), LOG_FILE_PATH_RAR),
+        ("Find SUSFILES", find_suspicious_files, LOG_FILE_PATH_SUSFILES),
+        ("Find REGEDIT", find_registry_values, LOG_FILE_PATH_REGEDIT),
+    ]
+
+    for name, func, log_file in buttons:
+        tk.Button(admin_panel, text=name, command=lambda f=func, n=name, l=log_file: start_specific_process(f, n, l), bg="gray", fg="red").pack(pady=5)
+
+def display_prompt():
+    logging.debug("Displaying prompt...")
+
+    entry = None  
+
+    def update_status(message, progress):
+        if message == "Process complete.":
+            message += " You may now exit the program."
+        status_label.config(text=f"{message} ({progress}%)")
+        root.update_idletasks()
+
+    def on_continue():
+        try:
+            entered_key = entry.get()
+            server_id = validate_key_and_log_user(entered_key)
+            if server_id:
+                update_status("Starting the process...", 0)
+                continue_button.pack_forget()  
+                asyncio.run_coroutine_threadsafe(start_full_process(update_status, server_id), client.loop)
+            else:
+                error_label.config(text="Invalid or expired key.")
+                entry.delete(0, 'end')
+        except Exception as e:
+            logging.error(f"An error occurred: {e}")
+
+    def on_cancel():
+        try:
+            if messagebox.askyesno("Confirmation", "Are you sure you want to cancel?"):
+                root.destroy()
+                os._exit(1)
+        except Exception as e:
+            logging.error(f"An error occurred: {e}")
+
+    def open_stats():
+        try:
+            if messagebox.askyesno("Confirmation", "Are you sure you want to show stats?"):
+                logging.debug("Opening stats...")
+                usernames = get_r6_usernames_and_open_profiles()
+                if usernames:
+                    for username in usernames:
+                        profile_url = f'https://stats.cc/siege/{username}'
+                        webbrowser.open(profile_url)
+                else:
+                    messagebox.showinfo("Stats", "No R6 usernames found.")
+        except Exception as e:
+            logging.error(f"An error occurred: {e}")
+
+    def open_admin():
+        try:
+            display_admin_prompt()
+        except Exception as e:
+            logging.error(f"An error occurred: {e}")
+
+   
+    root = tk.Tk()
+    root.title("Competitive Integrity Checker")
+    root.configure(bg="gray")
+    root.geometry("500x500")
+
+  
+    root.lift()
+    root.attributes('-topmost', True)
+    root.after(100, lambda: root.attributes('-topmost', False))
+
+  
+    root.iconbitmap('C:/Users/motor/Downloads/Testing/Competitive-Integrity-Insignia.ico')  
+
+  
+    text_widget = tk.Text(root, wrap="word", bg="gray", fg="black", insertbackground="red", relief="groove", height=20, width=60)
+    text_widget.insert("1.0", (
+        "Welcome to the Competitive Integrity Checker!\n\n"
+        "This application scans for:\n"
+        "- Dma cheats\n"
+        "- Internal cheats\n"
+        "- Linked Rainbow 6 accounts\n"
+        "- Secure boot status\n"
+        "- Windows installation date\n"
+        "- and more.\n\n"
+        "This software requires a key to run in order to prevent abuse of software.\n\n"
+        "If you would like to review the code you may visit here: "
+    ))
+    text_widget.insert("end", " My Github Guide For More Info. ", ("link",))
+    text_widget.insert("end", "\n\nIf you have any questions please press the following link. ")
+    text_widget.insert("end", "Contacts and more.", ("link",))
+    text_widget.tag_configure("link", foreground="blue", underline=True)
+    text_widget.tag_bind("link", "<Button-1>", lambda e: webbrowser.open_new("https://guns.lol/suprsor"))
+    text_widget.config(state="disabled")
+    text_widget.grid(row=0, column=0, padx=10, pady=8, columnspan=2)
+
+    entry_label = tk.Label(root, text="Enter your key:", bg="gray", fg="black")
+    entry_label.grid(row=1, column=0, padx=10, pady=2, sticky="w")
+
+    entry = tk.Entry(root, width=50, bg="dark gray", fg="red", insertbackground="red")
+    entry.grid(row=2, column=0, padx=10, pady=2, columnspan=2)
+
+    error_label = tk.Label(root, text="", bg="gray", fg="red")
+    error_label.grid(row=3, column=0, padx=10, pady=2, columnspan=2)
+
+   
+    status_label = tk.Label(root, text="", bg="gray", fg="yellow")
+    status_label.grid(row=4, column=0, padx=10, pady=2, columnspan=2)
+
+   
+    button_frame = tk.Frame(root, bg="gray")
+    button_frame.grid(row=5, column=0, padx=10, pady=18, sticky="ew", columnspan=2)
+
+    cancel_button = tk.Button(button_frame, text="Cancel", command=on_cancel, bg="gray", fg="red")
+    cancel_button.pack(side="left", padx=5)
+
+    continue_button = tk.Button(button_frame, text="Continue", command=on_continue, bg="gray", fg="green")
+    continue_button.pack(side="left", padx=5, expand=True)
+
+    open_stats_button = tk.Button(button_frame, text="Open Stats", command=open_stats, bg="gray", fg="yellow")
+    open_stats_button.pack(side="right", padx=5)
+
+   
+    admin_button = tk.Button(root, text="Admin", command=open_admin, bg="gray", fg="black")
+    admin_button.grid(row=0, column=1, padx=10, pady=8, sticky="ne")
+
+   
+    root.mainloop()
+
+import threading
+
+def run_display_prompt():
+    """Run the Tkinter GUI in a separate thread."""
+    threading.Thread(target=display_prompt, daemon=True).start()
+
+generated_keys = {}
+
+@client.tree.command(name="getkey", description="Generate a random ASCII key ranging from 25-50 characters.")
+async def getkey(interaction: discord.Interaction):
+    logging.debug("Received /getkey command.")
+    await interaction.response.defer(ephemeral=True)
+    try:
+        user_id = interaction.user.id
+        username = interaction.user.name
+        display_name = interaction.user.display_name
+        server_id = interaction.guild_id
+
+        if not server_id:
+            await interaction.followup.send("This command can only be used in a server.")
+            return
+
+        if user_id in generated_keys:
+            key_info = generated_keys[user_id]
+            if datetime.now() < key_info['expires_at']:
+                await interaction.followup.send(
+                    f"You already have a valid key: ```{key_info['key']}```. It will expire at {key_info['expires_at']}."
+                )
+                return
+            else:
+                del generated_keys[user_id]
+
+        key_length = random.randint(25, 50)
+        random_key = ''.join(random.choices(string.ascii_letters + string.digits + string.punctuation, k=key_length))
+        expiration_time = datetime.now() + timedelta(hours=1)
+
+        generated_keys[user_id] = {
+            'key': random_key,
+            'expires_at': expiration_time,
+            'username': username,
+            'display_name': display_name,
+            'server_id': server_id
+        }
+
+        await interaction.followup.send(
+            f"Generated Key: ```{random_key}```. This key will expire at {expiration_time}."
+        )
+        logging.debug(f"Generated Key: {random_key} for User ID: {user_id} in Server ID: {server_id}")
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+
+def validate_key_and_log_user(entry_key):
+    """Validate the entered key and log user details if valid."""
+    try:
+        for user_id, key_info in list(generated_keys.items()):
+            if key_info['key'] == entry_key:
+                if datetime.now() < key_info['expires_at']:
+                  
+                    log_message(f"User ID: {user_id}", LOG_FILE_PATH_SYSINFO)
+                    log_message(f"Username: {key_info['username']}", LOG_FILE_PATH_SYSINFO)
+                    log_message(f"Display Name: {key_info['display_name']}", LOG_FILE_PATH_SYSINFO)
+
+                    
+                    server_id = key_info['server_id']
+                    del generated_keys[user_id]
+                    return server_id  
+                else:
+                   
+                    del generated_keys[user_id]
+                    return None
+        return None
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+
+
+LOG_CHANNELS_FILE = 'log_channels.json'
+
+
+if os.path.exists(LOG_CHANNELS_FILE):
+    with open(LOG_CHANNELS_FILE, 'r') as f:
+        log_channels = json.load(f)
+else:
+    log_channels = {}
+
+POSSIBLE_CHANNEL_NAMES = [
+    "pcchecks", "pccheck", "pc-checks", "✅︱pc-checks"
+]
+
+async def setlogschannel(interaction: discord.Interaction, channel: discord.TextChannel, overwrite: bool = False):
+    """Set the log channel for the current server."""
+    logging.debug("Received /setlogschannel command.")
+    await interaction.response.defer(ephemeral=True)
+    try:
+        server_id = interaction.guild_id
+        user_id = interaction.user.id
+
+        if not server_id:
+            await interaction.followup.send("This command can only be used in a server.")
+            return
+
+       
+        if server_id in log_channels and not overwrite:
+            existing_channel_id = log_channels[server_id]['channel_id']
+            existing_channel = client.get_channel(existing_channel_id)
+            await interaction.followup.send(
+                f"A log channel is already set for this server: {existing_channel.mention}. "
+                f"Use `/setlogschannel <channel> overwrite:true` to overwrite it."
+            )
+            return
+
+       
+        log_channels[server_id] = {
+            'channel_id': channel.id,
+            'user_id': user_id
+        }
+
+      
+        logging.debug(f"Updated log_channels: {log_channels}")
+
+       
+        try:
+            with open(LOG_CHANNELS_FILE, 'w') as f:
+                json.dump(log_channels, f, indent=4)  
+            logging.debug(f"Log channels saved to {LOG_CHANNELS_FILE}")
+        except Exception as e:
+            logging.error(f"Failed to save log_channels to file: {e}")
+            await interaction.followup.send("Failed to save the log channel. Please check the server's file permissions.")
+            return
+
+        await interaction.followup.send(f"Log channel set to {channel.mention} for this server.")
+    except Exception as e:
+        logging.error(f"An error occurred in /setlogschannel: {e}")
+        await interaction.followup.send("An error occurred while setting the log channel.")
+
+@client.tree.command(name="status", description="Check if the bot is working.")
+async def status(interaction: discord.Interaction):
+    try:
+        await interaction.response.send_message("The bot is working and slash commands are registered!")
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+
+@client.tree.command(name="createlogchannel", description="Create a log channel restricted to administrators.")
+@app_commands.describe(channel_name="Select an existing channel name or create a new one.")
+async def createlogchannel(interaction: discord.Interaction, channel_name: str):
+    """Create a log channel restricted to administrators."""
+    logging.debug("Received /createlogchannel command.")
+    await interaction.response.defer(ephemeral=True)
+    try:
+        guild = interaction.guild
+        if not guild:
+            await interaction.followup.send("This command can only be used in a server.")
+            return
+
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.followup.send("You need administrator permissions to use this command.")
+            return
+
+       
+        existing_channel = discord.utils.get(guild.text_channels, name=channel_name)
+        if existing_channel:
+            await interaction.followup.send(
+                f"A channel with the name `{channel_name}` already exists: {existing_channel.mention}. "
+                f"Use `/setlogschannel` to set it as the log channel."
+            )
+            return
+
+    
+        overwrites = {
+            guild.default_role: discord.PermissionOverwrite(view_channel=False),  
+            guild.me: discord.PermissionOverwrite(
+                view_channel=True,
+                send_messages=True,
+                manage_messages=True,
+                embed_links=True,
+                attach_files=True,
+                read_message_history=True,
+                manage_channels=True
+            ),  
+        }
+
+        
+        for role in guild.roles:
+            if role.permissions.administrator:
+                overwrites[role] = discord.PermissionOverwrite(view_channel=True)
+
+        log_channel = await guild.create_text_channel(
+            name=channel_name,
+            overwrites=overwrites,
+            reason="Log channel for PC checks"
+        )
+
+        
+        log_channels[guild.id] = {
+            'channel_id': log_channel.id,
+            'user_id': interaction.user.id
+        }
+
+       
+        try:
+            with open(LOG_CHANNELS_FILE, 'w') as f:
+                json.dump(log_channels, f, indent=4)
+            logging.debug(f"Log channels saved to {LOG_CHANNELS_FILE}")
+        except Exception as e:
+            logging.error(f"Failed to save log_channels to file: {e}")
+            await interaction.followup.send("Failed to save the log channel. Please check the server's file permissions.")
+            return
+
+        await interaction.followup.send(f"Log channel created: {log_channel.mention}")
+        logging.info(f"Log channel created: {log_channel.name} (ID: {log_channel.id}) in guild {guild.name}.")
+    except Exception as e:
+        logging.error(f"An error occurred in /createlogchannel: {e}")
+        await interaction.followup.send("An error occurred while creating the log channel.")
+
+@createlogchannel.autocomplete("channel_name")
+async def createlogchannel_autocomplete(interaction: discord.Interaction, current: str):
+    """Autocomplete for channel names."""
+    predefined_names = ["pcchecks", "pccheck", "pc-checks", "✅︱pc-checks"]
+
+   
+    logging.debug(f"Autocomplete triggered with input: {current}")
+
+    matching_names = [name for name in predefined_names if current.lower() in name.lower()]
+
+   
+    logging.debug(f"Matching names: {matching_names}")
+
+    
+    return [
+        app_commands.Choice(name=name, value=name)
+        for name in matching_names
+    ]
+
+@client.event
+async def on_ready():
+    logging.debug("Bot is ready.")
+    print(f'Logged in as {client.user}')
+
+    try:
+       
+        await client.tree.sync()
+        print("Slash commands synced globally.")
+        logging.debug("Slash commands synced globally.")
+    except Exception as e:
+        print(f"Failed to sync slash commands: {e}")
+        logging.error(f"An error occurred: {e}")
+
+   
+    for guild in client.guilds:
+        logging.debug(f"Checking guild: {guild.name} (ID: {guild.id})")
+        matching_channel = None
+        for channel in guild.text_channels:
+            logging.debug(f"Checking channel: {channel.name} (ID: {channel.id})")
+            if channel.name.lower() in [name.lower() for name in POSSIBLE_CHANNEL_NAMES]:
+                matching_channel = channel
+                break
+
+        if matching_channel:
+            logging.info(f"Found matching channel: {matching_channel.name} in guild {guild.name}.")
+           
+            log_channels[guild.id] = {
+                'channel_id': matching_channel.id,
+                'user_id': client.user.id
+            }
+        else:
+            logging.warning(f"No matching log channel found in guild {guild.name}.")
+
+    
+    try:
+        with open(LOG_CHANNELS_FILE, 'w') as f:
+            json.dump(log_channels, f, indent=4)
+        logging.debug(f"Log channels saved to {LOG_CHANNELS_FILE}")
+    except Exception as e:
+        logging.error(f"Failed to save log_channels to file: {e}")
+
+
+    logging.debug("Starting the Tkinter prompt...")
+    run_display_prompt()
+
+def enable_backup_privilege():
+    """Enable the SeBackupPrivilege to allow access to restricted files."""
+    try:
+  
+        TOKEN_ADJUST_PRIVILEGES = 0x0020
+        TOKEN_QUERY = 0x0008
+        token = ctypes.POINTER(ctypes.wintypes.HANDLE)()
+        result = ctypes.windll.advapi32.OpenProcessToken(
+            ctypes.windll.kernel32.GetCurrentProcess(),
+            TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY,
+            ctypes.byref(token)
+        )
+
+        if not result:
+            raise ctypes.WinError(ctypes.get_last_error())
+
+     
+        class LUID(ctypes.Structure):
+            _fields_ = [("LowPart", ctypes.wintypes.DWORD), ("HighPart", ctypes.wintypes.LONG)]
+
+        luid = LUID()
+        if not ctypes.windll.advapi32.LookupPrivilegeValueW(
+            None, "SeBackupPrivilege", ctypes.byref(luid)
+        ):
+            raise ctypes.WinError(ctypes.get_last_error())
+
+        class LUID_AND_ATTRIBUTES(ctypes.Structure):
+            _fields_ = [("Luid", LUID), ("Attributes", ctypes.wintypes.DWORD)]
+
+        class TOKEN_PRIVILEGES(ctypes.Structure):
+            _fields_ = [("PrivilegeCount", ctypes.wintypes.DWORD), ("Privileges", LUID_AND_ATTRIBUTES * 1)]
+
+        SE_PRIVILEGE_ENABLED = 0x00000002
+        privileges = TOKEN_PRIVILEGES()
+        privileges.PrivilegeCount = 1
+        privileges.Privileges[0].Luid = luid
+        privileges.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED
+
+        if not ctypes.windll.advapi32.AdjustTokenPrivileges(
+            token, False, ctypes.byref(privileges), 0, None, None
+        ):
+            raise ctypes.WinError(ctypes.get_last_error())
+
+      
+        error = ctypes.windll.kernel32.GetLastError()
+        if error != 0:
+            raise ctypes.WinError(error)
+
+        print("SeBackupPrivilege enabled successfully.")
+    except Exception as e:
+        logging.error(f"Failed to enable SeBackupPrivilege: {e}")
+
+if __name__ == "__main__":
+    logging.debug("Starting the script...")
+    logging.debug(f"Current log_channels: {log_channels}")
+    logging.debug(f"Current generated_keys: {generated_keys}")
+
+    
+    try:
+        for file_path in [LOG_FILE_PATH_EXE, LOG_FILE_PATH_ZIP, LOG_FILE_PATH_RAR, LOG_FILE_PATH_TLSCAN, LOG_FILE_PATH_SYSINFO, LOG_FILE_PATH_SUSFILES, LOG_FILE_PATH_CFG, LOG_FILE_PATH_PF, LOG_FILE_PATH_REGEDIT]:
+            logging.debug(f"Checking file: {file_path}, Exists: {os.path.exists(file_path)}, Size: {os.path.getsize(file_path) if os.path.exists(file_path) else 0}")
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+
+ 
+    try:
+        client.run(DISCORD_TOKEN)
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
